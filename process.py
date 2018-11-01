@@ -50,6 +50,134 @@ elif hasattr(np, 'float96'):
 else:
     ndfloat128 = np.float64
 
+def build_self_reference(filename,wcslist=None):
+    """ This function creates a reference, undistorted WCS that can be used to
+    apply a correction to the WCS of the input file.
+
+    PARAMETERS
+    ----------
+    filename : str
+        Filename of image which will be corrected, and which will form the basis
+        of the undistorted WCS
+
+    wcslist : list, optional
+        List of HSTWCS objects for all SCI extensions in input file.
+        If None, will create using `wcsutil.HSTWCS` on each identified SCI
+        extension identified in `filename`
+
+    Syntax
+    -------
+    This function can be used with the following syntax to apply a shift/rot/scale
+    change to the same image:
+
+    >>> import buildref
+    >>> from drizzlepac import updatehdr
+    >>> filename = "jce501erq_flc.fits"
+    >>> wcslin = buildref.build_self_reference(filename)
+    >>> updatehdr.updatewcs_with_shift(filename,wcslin,xsh=49.5694, ysh=19.2203, rot = 359.998, scale = 0.9999964)
+
+    """
+    if 'sipwcs' in filename:
+        sciname = 'sipwcs'
+    else:
+        sciname = 'sci'
+    if wcslist is None:
+        numSci = fileutil.countExtn(filename, extname=sciname.upper())
+        wcslist = []
+        for extnum in range(numSci):
+            wcslist.append(read_hlet_wcs(filename, ext=(sciname,extnum+1)))
+    wcslin = utils.output_wcs(wcslist)
+    wcsbase = wcslin.wcs
+    customwcs = build_hstwcs(wcsbase.crval[0],wcsbase.crval[1],wcsbase.crpix[0],wcsbase.crpix[1],wcslin._naxis1,wcslin._naxis2,wcslin.pscale,wcslin.orientat)
+
+    return customwcs
+
+def shift_exposure(filename, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
+                    deltaRA=None, deltaDEC=None):
+    """Update exposure WCS based on guide star coord update.
+
+    Parameters
+    ===========
+    filename : str or HDUList
+        Filename or FITS HDUList object for exposure to be corrected
+
+    old_gs : tuple
+        Coordinates of guide star from old catalog as a tuple of floats,
+        such (154.9857892, -72.0349340)
+
+    new_gs : tuple
+        Coordinates of same guide star from NEW catalog as a tuple of floats,
+        such as (154.9843490, -70.03309834)
+
+    Returns
+    ========
+    hdulist : HDUList
+        FITS HDUList object of the updated exposure
+    """
+    # Interpret input for exposure
+    if isinstance(filename, str):
+        hdulist = fits.open(filename, mode='update')
+    else:
+        hdulist = filename
+
+    observationID = hdulist[0].header['rootname']
+
+    # Generate undistorted WCS that represents entire exposure's field-of-view
+    expwcs = build_self_reference(hdulist)
+    wcsframe = expwcs.wcs.radesys.lower()
+
+    if not hdulist['SCI',1].header['WCSNAME']==wcsName:
+        if ((deltaRA is not None) and (deltaDEC is not None)):
+            """
+            #
+            # Original algorithm provided by E. Tollerud July 2018
+            #
+            # Define SkyCoord for Guide Star using old/original coordinates used to
+            # originally compute WCS for exposure
+            gs = SkyCoord(old_gs[0], old_gs[1], unit='deg', frame=wcsframe)
+            sof_old = gs.skyoffset_frame()
+            # Define new SkyOffsetFrame based on new GS coords
+            sof_new = SkyCoord(new_gs[0], new_gs[1], unit='deg',
+                               frame=wcsframe).skyoffset_frame()
+
+            # Compute transformation from old GS frame to the new GS frame
+            c_sof_old = crval.transform_to(sof_old)
+            c_sof_new = SkyCoord(c_sof_old.data, frame=wcsframe)
+            new_crval = c_sof_new.icrs
+            """
+
+            # Use WCS to compute offset in pixels of shift applied to WCS Reference pixel
+            # RA,Dec of ref pixel in decimal degrees
+            crval = SkyCoord(expwcs.wcs.crval[0], expwcs.wcs.crval[1],
+                             unit='deg', frame=wcsframe)
+
+            # Define SkyCoord for Guide Star using old/original coordinates used to
+            # originally compute WCS for exposure
+            old_gs_coord = SkyCoord(old_gs[0], old_gs[1], unit='deg', frame=wcsframe)
+            sof_old = old_gs_coord.skyoffset_frame()
+            # Define new SkyOffsetFrame based on new GS coords
+            new_gs_coord = SkyCoord(new_gs[0], new_gs[1], unit='deg',
+                               frame=wcsframe)
+            # Determine offset from old GS position to the new GS position
+            sof_new = new_gs_coord.transform_to(sof_old)
+            # Compute new CRVAL position as old CRVAL+GS offset (sof_new)
+            new_crval_coord = SkyCoord(sof_new.lon.arcsec, sof_new.lat.arcsec,
+                                 unit='arcsecond',
+                                 frame = crval.skyoffset_frame())
+            # Return RA/Dec for new/updated CRVAL position
+            new_crval = new_crval_coord.icrs
+
+            # Compute offset in pixels for new CRVAL
+            newpix = expwcs.all_world2pix(new_crval.ra.value, new_crval.dec.value,1)
+            deltaxy = newpix - expwcs.wcs.crpix # offset from ref pixel position
+            deltaxy *= -1
+            updatehdr.updatewcs_with_shift(hdulist, expwcs,
+                                           xsh=deltaxy[0], ysh=deltaxy[1],
+                                           wcsname=wcsname)
+    else:
+        print(wcsName,' already exists in ',observationID)
+
+    return hdulist
 
 def updatewcs_with_shift(image,reference,wcsname=None, reusename=False,
                          fitgeom='rscale',
@@ -795,13 +923,68 @@ def apply_shifts(event):
     except Exception:
         return
     print(refRequest.content)
+    """ Request returns the following information:
+    <ReferenceUpdate observationID="ib6v06c4q">
+      <name>GS</name>
+      <inputCatalog>GSC23</inputCatalog>
+      <outputCatalog>GSC240</outputCatalog>
+      <dGS>S0W5147815</dGS>
+      <dGSinputRA>5.85821717</dGSinputRA>
+      <dGSinputDEC>-72.20652745</dGSinputDEC>
+      <dGSinputEpoch>2010.43566895</dGSinputEpoch>
+      <dGSoutputRA>5.85879994</dGSoutputRA>
+      <dGSoutputDEC>-72.20663689</dGSoutputDEC>
+      <dGSoutputEpoch>2010.43561600</dGSoutputEpoch>
+      <dGSraCorrection>0.00058278</dGSraCorrection>
+      <dGSdecCorrection>-0.00010944</dGSdecCorrection>
+      <dGSxiCorrection>0.64111482</dGSxiCorrection>
+      <dGSetaCorrection>-0.39399528</dGSetaCorrection>
+      <sGS>S0W5000579</sGS>
+      <sGSinputRA>4.87186721</sGSinputRA>
+      <sGSinputDEC>-72.18208800</sGSinputDEC>
+      <sGSinputEpoch>2010.43566895</sGSinputEpoch>
+      <sGSoutputRA>4.87235426</sGSoutputRA>
+      <sGSoutputDEC>-72.18211243</sGSoutputDEC>
+      <sGSoutputEpoch>2010.43561600</sGSoutputEpoch>
+      <sGSraCorrection>0.00048706</sGSraCorrection>
+      <sGSdecCorrection>-0.00002443</sGSdecCorrection>
+      <sGSxiCorrection>0.53652883</sGSxiCorrection>
+      <sGSetaCorrection>-0.08793566</sGSetaCorrection>
+      <inputSep>1089.36339581</inputSep>
+      <inputPA>274.16279727</inputPA>
+      <outputSep>1089.48923968</outputSep>
+      <outputPA>274.17836310</outputPA>
+      <FGSlock>
+      </FGSlock>
+      <RefFrame>ICRS</RefFrame>
+      <MTflag>
+      </MTflag>
+      <deltaRA>0.00058278</deltaRA>
+      <deltaDEC>-0.00010944</deltaDEC>
+      <deltaXI>0.64111482</deltaXI>
+      <deltaETA>-0.39399528</deltaETA>
+      <deltaROT>0.01556583</deltaROT>
+      <deltaSCALE>1.00011552</deltaSCALE>
+      <Nstars>2</Nstars>
+      <status>200</status>
+      <msg>Success : Dgstar (S0W5147815) + Sgstar (S0W5000579) correction applied</msg>
+    </ReferenceUpdate>"
+    """
     refXMLtree=etree.fromstring(refRequest.content)
-    deltaRA=refXMLtree.findtext('deltaRA')
-    deltaDEC=refXMLtree.findtext('deltaDEC')
+    deltaRA=float(refXMLtree.findtext('deltaRA'))
+    deltaDEC=float(refXMLtree.findtext('deltaDEC'))
+    deltaROT=float(refXMLtree.findtext('deltaROT'))
+    deltaSCALE=float(refXMLtree.findtext('deltaSCALE'))
 
-    deltaRA=float(deltaRA)
-    deltaDEC=float(deltaDEC)
+    old_gs = (float(refXMLtree.findtext('dGSinputRA')),float(refXMLtree.findtext('dGSinputDEC')))
+    new_gs = (float(refXMLtree.findtext('dGSoutputRA'))float(refXMLtree.findtext('dGSoutputDEC')))
 
+    # Update file with astrometric GS corrections
+    wcsName = 'AWSUpdate'
+    print('Calling shift_exposure for: {}'.format(root))
+    im = shift_exposure(im, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
+                        deltaRA=deltaRA, deltaDEC=deltaDEC)
+    """
     # Build reference frame
     im_wcs = wcs.WCS(im[1].header, relax=True, fobj=im)
     ref_wcs = output_wcs([im_wcs])
@@ -813,17 +996,16 @@ def apply_shifts(event):
     ref_pix_shift = ref_wcs.all_world2pix(ref_sky_shift[0], ref_sky_shift[1],1)
     delta_x = ref_pix_shift[0] - ref_pix[0]
     delta_y = ref_pix_shift[1] - ref_pix[1]
-
-    # Update input file with hard-coded shifts
-    wcsName = 'AWSUpdate'
+    print('Calling updatewcs_with_shift')
+    print(root)
+    updatewcs_with_shift(im, ref_wcs, xsh=delta_x, ysh=delta_y,wcsname=wcsName)
+    """
+    # Create headerlet with updated, a priori-corrected WCS
     hdrName = '{}_AWS_hdrlet'.format(root)
     author = 'AWS'
     descrip = 'Test shift done on AWS'
     nmatch= 0
     catalog = 'No catalog'
-    print('Calling updatewcs_with_shift')
-    print(root)
-    updatewcs_with_shift(im, ref_wcs, xsh=delta_x, ysh=delta_y,wcsname=wcsName)
     hdrlet = headerlet.create_headerlet(im, hdrname=hdrName, wcsname=wcsName, author=author, descrip=descrip, nmatch=nmatch, catalog=catalog)
     hdrlet_file = "{}.fits".format(hdrName)
     hdrlet.tofile(hdrlet_file)
