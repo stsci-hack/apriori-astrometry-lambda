@@ -30,9 +30,8 @@ import re
 import math
 import warnings
 
-from astropy import wcs as pywcs
-
 from stwcs import wcsutil, updatewcs
+from stwcs.distortion import utils
 from stwcs.wcsutil import wcscorr
 
 __version__ = '0.3.0'
@@ -49,6 +48,62 @@ elif hasattr(np, 'float96'):
     ndfloat128 = np.float96
 else:
     ndfloat128 = np.float64
+
+def buildRotMatrix(theta):
+    _theta = DEGTORAD(theta)
+    _mrot = np.zeros(shape=(2,2), dtype=np.float64)
+    _mrot[0] = (np.cos(_theta), np.sin(_theta))
+    _mrot[1] = (-np.sin(_theta), np.cos(_theta))
+
+    return _mrot
+
+def DEGTORAD(deg):
+    return (deg * np.pi / 180.)
+
+def RADTODEG(rad):
+    return (rad * 180. / np.pi)
+
+def build_hstwcs(crval1, crval2, crpix1, crpix2, naxis1, naxis2, pscale, orientat):
+    """ Create an HSTWCS object for a default instrument without distortion
+        based on user provided parameter values.
+
+        .. note :: COPIED from drizzlepac.wcs_functions
+    """
+    wcsout = wcsutil.HSTWCS()
+    wcsout.wcs.crval = np.array([crval1,crval2])
+    wcsout.wcs.crpix = np.array([crpix1,crpix2])
+    wcsout.naxis1 = naxis1
+    wcsout.naxis2 = naxis2
+    wcsout.wcs.cd = buildRotMatrix(orientat)*[-1,1]*pscale/3600.0
+    # Synchronize updates with PyWCS/WCSLIB objects
+    wcsout.wcs.set()
+    wcsout.setPscale()
+    wcsout.setOrient()
+    wcsout.wcs.ctype = ['RA---TAN','DEC--TAN']
+
+    return wcsout
+
+def countExtn(fimg, extname='SCI'):
+    """
+    Return the number of 'extname' extensions, defaulting to counting the
+    number of SCI extensions.
+    """
+
+    closefits = False
+    if isinstance(fimg, str):
+        fimg = pf.open(fimg)
+        closefits = True
+
+    n = 0
+    for e in fimg:
+        if 'extname' in e.header and e.header['extname'] == extname:
+            n += 1
+
+    if closefits:
+        fimg.close()
+
+    return n
+
 
 def build_self_reference(filename,wcslist=None):
     """ This function creates a reference, undistorted WCS that can be used to
@@ -82,7 +137,7 @@ def build_self_reference(filename,wcslist=None):
     else:
         sciname = 'sci'
     if wcslist is None:
-        numSci = fileutil.countExtn(filename, extname=sciname.upper())
+        numSci = countExtn(filename, extname=sciname.upper())
         wcslist = []
         for extnum in range(numSci):
             wcslist.append(read_hlet_wcs(filename, ext=(sciname,extnum+1)))
@@ -95,7 +150,7 @@ def build_self_reference(filename,wcslist=None):
 def shift_exposure(filename, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
                     deltaRA=None, deltaDEC=None):
     """Update exposure WCS based on guide star coord update.
-
+    
     Parameters
     ===========
     filename : str or HDUList
@@ -171,7 +226,7 @@ def shift_exposure(filename, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
             newpix = expwcs.all_world2pix(new_crval.ra.value, new_crval.dec.value,1)
             deltaxy = newpix - expwcs.wcs.crpix # offset from ref pixel position
             deltaxy *= -1
-            updatehdr.updatewcs_with_shift(hdulist, expwcs,
+            updatewcs_with_shift(hdulist, expwcs,
                                            xsh=deltaxy[0], ysh=deltaxy[1],
                                            wcsname=wcsname)
     else:
@@ -283,14 +338,14 @@ def updatewcs_with_shift(image,reference,wcsname=None, reusename=False,
 
     """
     # if input reference is a ref_wcs file from tweakshifts, use it
-    if isinstance(reference, wcsutil.HSTWCS) or isinstance(reference, pywcs.WCS):
+    if isinstance(reference, wcsutil.HSTWCS) or isinstance(reference, wcs.WCS):
         wref = reference
     else:
         refimg = fits.open(reference, memmap=False)
         wref = None
         for extn in refimg:
             if 'extname' in extn.header and extn.header['extname'] == 'WCS':
-                wref = pywcs.WCS(refimg['wcs'].header)
+                wref = wcs.WCS(refimg['wcs'].header)
                 break
         refimg.close()
         # else, we have presumably been provided a full undistorted image
