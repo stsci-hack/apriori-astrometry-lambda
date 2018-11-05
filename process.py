@@ -34,9 +34,10 @@ from stwcs import wcsutil, updatewcs
 from stwcs.distortion import utils
 from stwcs.wcsutil import wcscorr
 
-__version__ = '0.3.0'
-__version_date__ = '26-Oct-2018'
+__version__ = '0.4.0'
+__version_date__ = '5-Nov-2018'
 
+serviceLocation = 'https://mastdev.stsci.edu/portal/astrometryDB/'
 
 wcs_keys = ['CRVAL1','CRVAL2','CD1_1','CD1_2','CD2_1','CD2_2',
             'CRPIX1','CRPIX2','ORIENTAT']
@@ -947,11 +948,45 @@ def remove_distortion_keywords(hdr):
             except KeyError:
                 pass
 
+###################################################
+#
+#  Function from stwcs.updatewcs.astrometry_utils
+#
+###################################################
+def addObservation(observationID, new_solution):
+    """Add updated WCS from an observation to the astrometry database
+
+    Parameters
+    ===========
+    observationID : string
+        Rootname of observation to which the new solution applies
+
+    new_solution : Headerlet object
+        Headerlet with the new solution
+
+    """
+    serviceEndPoint = self.serviceLocation+'observation/create'
+    headers = {'Content-Type': 'application/octet-stream'}
+
+    r = requests.post(serviceEndPoint, data=new_solution, headers=headers)
+    if r.status_code == requests.codes.ok:
+        print("AstrometryDB service updated with new entry for {}".
+                    format(observationID))
+    else:
+        l = "Problem encountered when adding {} to database".\
+                       format(observationID)
+        raise Exception(l)
+
+###################################################
+#
+#  MAIN Function
+#
+###################################################
 def apply_shifts(event):
-    flt_file = event['fits_s3_key']
+    flt_file = event['fits_s3_key'] #e.g., /s3_output_bucket/hstpubdata/acs/j97b09zcq_flt.fits
     flt_file_bucket = event['fits_s3_bucket']
-    root = flt_file.split('/')[-1].split('_')[0]
-    root_file = flt_file.split('/')[-1]
+    root_file = os.path.basename(flt_file) #e.g., j97b09zcq_flt.fits
+    root = root_file.split('_')[0]  #e.g., j97b09zcq
 
     s3 = boto3.resource('s3')
     s3_client = boto3.client('s3')
@@ -1064,6 +1099,9 @@ def apply_shifts(event):
     hdrlet = headerlet.create_headerlet(im, hdrname=hdrName, wcsname=wcsName, author=author, descrip=descrip, nmatch=nmatch, catalog=catalog)
     hdrlet_file = "{}.fits".format(hdrName)
     hdrlet.tofile(hdrlet_file)
+
+    # Update Astrometry database with new solution
+    addObservation(root, hdrlet)
 
     # Write out to S3
     s3 = boto3.resource('s3')
