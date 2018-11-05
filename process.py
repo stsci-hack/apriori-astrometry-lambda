@@ -37,7 +37,7 @@ from stwcs.wcsutil import wcscorr
 __version__ = '0.4.0'
 __version_date__ = '5-Nov-2018'
 
-serviceLocation = 'https://mastdev.stsci.edu/portal/astrometryDB/'
+serviceLocation = 'https://masttest.stsci.edu/portal/astrometryDB/'
 
 wcs_keys = ['CRVAL1','CRVAL2','CD1_1','CD1_2','CD2_1','CD2_2',
             'CRPIX1','CRPIX2','ORIENTAT']
@@ -1065,7 +1065,7 @@ def apply_shifts(event):
     deltaDEC=float(refXMLtree.findtext('deltaDEC'))
     deltaROT=float(refXMLtree.findtext('deltaROT'))
     deltaSCALE=float(refXMLtree.findtext('deltaSCALE'))
-    
+
 
     old_gs = (float(refXMLtree.findtext('dGSinputRA')),float(refXMLtree.findtext('dGSinputDEC')))
     new_gs = (float(refXMLtree.findtext('dGSoutputRA')),float(refXMLtree.findtext('dGSoutputDEC')))
