@@ -150,7 +150,7 @@ def build_self_reference(filename,wcslist=None):
 def shift_exposure(filename, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
                     deltaRA=None, deltaDEC=None):
     """Update exposure WCS based on guide star coord update.
-    
+
     Parameters
     ===========
     filename : str or HDUList
@@ -1032,7 +1032,7 @@ def apply_shifts(event):
     deltaSCALE=float(refXMLtree.findtext('deltaSCALE'))
 
     old_gs = (float(refXMLtree.findtext('dGSinputRA')),float(refXMLtree.findtext('dGSinputDEC')))
-    new_gs = (float(refXMLtree.findtext('dGSoutputRA'))float(refXMLtree.findtext('dGSoutputDEC')))
+    new_gs = (float(refXMLtree.findtext('dGSoutputRA')),float(refXMLtree.findtext('dGSoutputDEC')))
 
     # Update file with astrometric GS corrections
     wcsName = 'AWSUpdate'
