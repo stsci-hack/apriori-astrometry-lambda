@@ -1065,6 +1065,7 @@ def apply_shifts(event):
     deltaDEC=float(refXMLtree.findtext('deltaDEC'))
     deltaROT=float(refXMLtree.findtext('deltaROT'))
     deltaSCALE=float(refXMLtree.findtext('deltaSCALE'))
+    
 
     old_gs = (float(refXMLtree.findtext('dGSinputRA')),float(refXMLtree.findtext('dGSinputDEC')))
     new_gs = (float(refXMLtree.findtext('dGSoutputRA')),float(refXMLtree.findtext('dGSoutputDEC')))
