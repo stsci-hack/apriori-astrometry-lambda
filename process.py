@@ -1059,38 +1059,35 @@ def apply_shifts(event):
       <status>200</status>
       <msg>Success : Dgstar (S0W5147815) + Sgstar (S0W5000579) correction applied</msg>
     </ReferenceUpdate>"
-    """
+
     refXMLtree=etree.fromstring(refRequest.content)
     deltaRA=float(refXMLtree.findtext('deltaRA'))
     deltaDEC=float(refXMLtree.findtext('deltaDEC'))
     deltaROT=float(refXMLtree.findtext('deltaROT'))
     deltaSCALE=float(refXMLtree.findtext('deltaSCALE'))
 
-
     old_gs = (float(refXMLtree.findtext('dGSinputRA')),float(refXMLtree.findtext('dGSinputDEC')))
     new_gs = (float(refXMLtree.findtext('dGSoutputRA')),float(refXMLtree.findtext('dGSoutputDEC')))
+    # Create new function to perform interpreation of database request and
+    # return a dict of all the interpreted values needed for updating and
+    # documenting the new WCS in a headerlet
+    #
+    # This can be implemented in the new function like:
+    #
+    # def interpret_request(refRequest.content):
+    #    d = dict()
+    #    d['deltaRA'] = float(refXMLtree.findtext('deltaRA'))
+    #    return d
+    """
+    database_values = interpret_request(refRequest.content)
+    # deltaRA = database_values['deltaRA']
 
     # Update file with astrometric GS corrections
     wcsName = 'AWSUpdate'
     print('Calling shift_exposure for: {}'.format(root))
     im = shift_exposure(im, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
                         deltaRA=deltaRA, deltaDEC=deltaDEC)
-    """
-    # Build reference frame
-    im_wcs = wcs.WCS(im[1].header, relax=True, fobj=im)
-    ref_wcs = output_wcs([im_wcs])
-    # convert deltaRA/deltaDEC(deg) to pixels
-    ref_wcs_shift = output_wcs([im_wcs])
-    ref_wcs_shift.wcs.crval += (deltaRA, deltaDEC)
-    ref_pix = (2048, 1024)
-    ref_sky_shift = ref_wcs_shift.all_pix2world(ref_pix[0],ref_pix[1],1)
-    ref_pix_shift = ref_wcs.all_world2pix(ref_sky_shift[0], ref_sky_shift[1],1)
-    delta_x = ref_pix_shift[0] - ref_pix[0]
-    delta_y = ref_pix_shift[1] - ref_pix[1]
-    print('Calling updatewcs_with_shift')
-    print(root)
-    updatewcs_with_shift(im, ref_wcs, xsh=delta_x, ysh=delta_y,wcsname=wcsName)
-    """
+
     # Create headerlet with updated, a priori-corrected WCS
     hdrName = '{}_AWS_hdrlet'.format(root)
     author = 'AWS'
