@@ -1,2 +1,2 @@
 astropy==2.0.5
-sep==1.0
+stwcs==1.4

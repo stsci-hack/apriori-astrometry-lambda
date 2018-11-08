@@ -21,7 +21,7 @@ do_pip () {
   source /sklearn_build/bin/activate
   pip3.6 install --upgrade pip wheel
   pip3.6 install --no-binary numpy numpy
-  pip3.6 install --no-binary scipy scipy
+  #pip3.6 install --no-binary scipy scipy
   test -f /outputs/requirements.txt && pip install -r /outputs/requirements.txt
 }
 

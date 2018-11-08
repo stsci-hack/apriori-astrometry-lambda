@@ -11,7 +11,6 @@ warnings.simplefilter('ignore', CacheMissingWarning)
 import boto3
 import glob
 import numpy as np
-import sep
 import requests
 from lxml import etree
 
