@@ -15,6 +15,7 @@ import requests
 from lxml import etree
 
 from astropy import wcs
+from astropy.coordinates import SkyCoord
 from astropy import units as u
 import astropy.io.fits as fits
 import astropy.io.ascii as ascii
@@ -140,6 +141,8 @@ def build_self_reference(filename,wcslist=None):
         wcslist = []
         for extnum in range(numSci):
             wcslist.append(read_hlet_wcs(filename, ext=(sciname,extnum+1)))
+            print("wcslist.wcsname: {}".format(filename[(sciname, extnum+1)].header['wcsname']))
+            print(wcslist[-1])
     wcslin = utils.output_wcs(wcslist)
     wcsbase = wcslin.wcs
     customwcs = build_hstwcs(wcsbase.crval[0],wcsbase.crval[1],wcsbase.crpix[0],wcsbase.crpix[1],wcslin._naxis1,wcslin._naxis2,wcslin.pscale,wcslin.orientat)
@@ -197,7 +200,7 @@ def shift_exposure(filename, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
     if wcsframe.strip() == '':
         wcsframe = 'fk5'
 
-    if not hdulist['SCI',1].header['WCSNAME']==wcsName:
+    if not hdulist['SCI',1].header['WCSNAME']==wcsname:
         if ((deltaRA is not None) and (deltaDEC is not None)):
             """
             #
