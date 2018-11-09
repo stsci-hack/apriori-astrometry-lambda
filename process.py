@@ -1056,7 +1056,7 @@ def apply_shifts(event):
     # Update file with astrometric GS corrections
     wcsName = 'AWSUpdate'
     print('Calling shift_exposure for: {}'.format(root))
-    im = shift_exposure(im, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
+    im = shift_exposure(im, old_gs, new_gs, wcsname=wcsName,
                         deltaRA=deltaRA, deltaDEC=deltaDEC)
     """
     # Build reference frame
