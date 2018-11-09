@@ -141,6 +141,8 @@ def build_self_reference(filename,wcslist=None):
         wcslist = []
         for extnum in range(numSci):
             wcslist.append(read_hlet_wcs(filename, ext=(sciname,extnum+1)))
+            print("wcslist.wcsname: {}".format(filename[(sciname, extnum+1)].header['wcsname']))
+            print(wcslist[-1])
     wcslin = utils.output_wcs(wcslist)
     wcsbase = wcslin.wcs
     customwcs = build_hstwcs(wcsbase.crval[0],wcsbase.crval[1],wcsbase.crpix[0],wcsbase.crpix[1],wcslin._naxis1,wcslin._naxis2,wcslin.pscale,wcslin.orientat)
