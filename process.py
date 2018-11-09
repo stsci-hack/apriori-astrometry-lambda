@@ -1080,7 +1080,7 @@ def apply_shifts(event):
     catalog = 'No catalog'
     hdrlet = headerlet.create_headerlet(im, hdrname=hdrName, wcsname=wcsName, author=author, descrip=descrip, nmatch=nmatch, catalog=catalog)
     hdrlet_file = "{}.fits".format(hdrName)
-    hdrlet.tofile(hdrlet_file)
+    hdrlet.tofile(hdrlet_file, clobber=True)
 
     """
     # Write out to S3 - Not needed for this process
