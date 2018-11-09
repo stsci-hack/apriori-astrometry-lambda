@@ -15,6 +15,7 @@ import requests
 from lxml import etree
 
 from astropy import wcs
+from astropy.coordinates import SkyCoord
 from astropy import units as u
 import astropy.io.fits as fits
 import astropy.io.ascii as ascii
@@ -195,7 +196,7 @@ def shift_exposure(filename, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
     expwcs = build_self_reference(hdulist)
     wcsframe = expwcs.wcs.radesys.lower()
 
-    if not hdulist['SCI',1].header['WCSNAME']==wcsName:
+    if not hdulist['SCI',1].header['WCSNAME']==wcsname:
         if ((deltaRA is not None) and (deltaDEC is not None)):
             """
             #
