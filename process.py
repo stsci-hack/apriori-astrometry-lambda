@@ -15,6 +15,7 @@ import requests
 from lxml import etree
 
 from astropy import wcs
+from astropy.coordinates import SkyCoord
 from astropy import units as u
 import astropy.io.fits as fits
 import astropy.io.ascii as ascii
@@ -146,6 +147,21 @@ def build_self_reference(filename,wcslist=None):
 
     return customwcs
 
+
+def read_hlet_wcs(filename, ext):
+    """Insure HSTWCS includes all attributes of a full image WCS.
+
+    For headerlets, the WCS does not contain information about the size of the
+    image, as the image array is not present in the headerlet.
+    """
+    hstwcs = wcsutil.HSTWCS(filename, ext=ext)
+    if hstwcs.naxis1 is None:
+        hstwcs.naxis1 = int(hstwcs.wcs.crpix[0]*2.) # Assume crpix is center of chip
+        hstwcs.naxis2 = int(hstwcs.wcs.crpix[1]*2.)
+
+    return hstwcs
+
+
 def shift_exposure(filename, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
                     deltaRA=None, deltaDEC=None):
     """Update exposure WCS based on guide star coord update.
@@ -179,8 +195,10 @@ def shift_exposure(filename, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
     # Generate undistorted WCS that represents entire exposure's field-of-view
     expwcs = build_self_reference(hdulist)
     wcsframe = expwcs.wcs.radesys.lower()
+    if wcsframe.strip() == '':
+        wcsframe = 'fk5'
 
-    if not hdulist['SCI',1].header['WCSNAME']==wcsName:
+    if not hdulist['SCI',1].header['WCSNAME']==wcsname:
         if ((deltaRA is not None) and (deltaDEC is not None)):
             """
             #
@@ -1036,7 +1054,7 @@ def apply_shifts(event):
     # Update file with astrometric GS corrections
     wcsName = 'AWSUpdate'
     print('Calling shift_exposure for: {}'.format(root))
-    im = shift_exposure(im, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
+    im = shift_exposure(im, old_gs, new_gs, wcsname=wcsName,
                         deltaRA=deltaRA, deltaDEC=deltaDEC)
     """
     # Build reference frame
@@ -1062,13 +1080,15 @@ def apply_shifts(event):
     catalog = 'No catalog'
     hdrlet = headerlet.create_headerlet(im, hdrname=hdrName, wcsname=wcsName, author=author, descrip=descrip, nmatch=nmatch, catalog=catalog)
     hdrlet_file = "{}.fits".format(hdrName)
-    hdrlet.tofile(hdrlet_file)
+    hdrlet.tofile(hdrlet_file, clobber=True)
 
-    # Write out to S3
+    """
+    # Write out to S3 - Not needed for this process
     s3 = boto3.resource('s3')
     s3.meta.client.upload_file('/tmp/{0}'.format(hdrlet_file), event['s3_output_bucket'], "{0}/{1}".format(root, hdrlet_file))
     s3.meta.client.upload_file('/tmp/{0}'.format(root_file), event['s3_output_bucket'], "{0}/{1}".format(root, root_file))
-
+    """
+    
 def handler(event, context):
     print(event['s3_output_bucket'])
     print(event['fits_s3_key'])
