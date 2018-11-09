@@ -194,6 +194,8 @@ def shift_exposure(filename, old_gs, new_gs, wcsname="TWEAK_GAIA_GSC",
     # Generate undistorted WCS that represents entire exposure's field-of-view
     expwcs = build_self_reference(hdulist)
     wcsframe = expwcs.wcs.radesys.lower()
+    if wcsframe.strip() == '':
+        wcsframe = 'fk5'
 
     if not hdulist['SCI',1].header['WCSNAME']==wcsName:
         if ((deltaRA is not None) and (deltaDEC is not None)):
