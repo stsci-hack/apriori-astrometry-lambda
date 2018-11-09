@@ -141,8 +141,6 @@ def build_self_reference(filename,wcslist=None):
         wcslist = []
         for extnum in range(numSci):
             wcslist.append(read_hlet_wcs(filename, ext=(sciname,extnum+1)))
-            print("wcslist.wcsname: {}".format(filename[(sciname, extnum+1)].header['wcsname']))
-            print(wcslist[-1])
     wcslin = utils.output_wcs(wcslist)
     wcsbase = wcslin.wcs
     customwcs = build_hstwcs(wcsbase.crval[0],wcsbase.crval[1],wcsbase.crpix[0],wcsbase.crpix[1],wcslin._naxis1,wcslin._naxis2,wcslin.pscale,wcslin.orientat)
@@ -1084,11 +1082,13 @@ def apply_shifts(event):
     hdrlet_file = "{}.fits".format(hdrName)
     hdrlet.tofile(hdrlet_file)
 
-    # Write out to S3
+    """
+    # Write out to S3 - Not needed for this process
     s3 = boto3.resource('s3')
     s3.meta.client.upload_file('/tmp/{0}'.format(hdrlet_file), event['s3_output_bucket'], "{0}/{1}".format(root, hdrlet_file))
     s3.meta.client.upload_file('/tmp/{0}'.format(root_file), event['s3_output_bucket'], "{0}/{1}".format(root, root_file))
-
+    """
+    
 def handler(event, context):
     print(event['s3_output_bucket'])
     print(event['fits_s3_key'])
