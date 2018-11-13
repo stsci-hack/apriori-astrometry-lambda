@@ -19,7 +19,8 @@ Click on "Create access key" and follow instructions to save/download keys.
 Building Docker function:
 >git clone https://github.com/spacetelescope/apriori-astrometry_lambda.git
 >docker pull amazonlinux:2017.09
->docker run -v "$PWD":/outputs -it amazonlinux:2017.09 /bin/bash /outputs/build.sh	(on windows substitute $PWD with %cd%)
+>docker run -v "$PWD":/outputs -it amazonlinux:2017.09 /bin/bash /outputs/build.sh	(on linux/mac)
+>docker run -v "%cd%":/outputs -it amazonlinux:2017.09 /bin/bash /outputs/build.sh	(on windows)
 
 Testing locally:
 create subdir /venv, copy venv.zip to it and unpack
